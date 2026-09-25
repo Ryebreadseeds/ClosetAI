@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Soft glow circle -->
+    <path
+        android:fillColor="#33E8B4B8"
+        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0" />
+    <!-- Hanger hook -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E8B4B8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,28 C54,28 54,22 48,22 C42,22 42,28 48,30" />
+    <!-- Hanger body -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#F5E6E8"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M48,30 L54,38 L78,52 L54,48 L30,52 L54,38" />
+    <!-- Closet bar hint -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C9A0A4"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M34,62 L74,62" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C9A0A4"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M38,70 L70,70" />
+</vector>

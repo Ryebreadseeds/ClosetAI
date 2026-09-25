@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ClosetAI" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#14101A</item>
+        <item name="android:navigationBarColor">#14101A</item>
+        <item name="android:windowBackground">#14101A</item>
+        <item name="android:colorPrimary">#E8B4B8</item>
+    </style>
+</resources>
