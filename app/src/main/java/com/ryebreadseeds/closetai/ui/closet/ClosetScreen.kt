@@ -40,7 +40,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -343,7 +342,7 @@ private fun DropdownField(label: String, value: String, options: List<String>, o
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier
-                .menuAnchor(type = MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor()
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
             colors = OutlinedTextFieldDefaults.colors(
