@@ -31,11 +31,9 @@ import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -330,21 +328,23 @@ private fun Field(label: String, value: String, onChange: (String) -> Unit) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DropdownField(label: String, value: String, options: List<String>, onChange: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            trailingIcon = {
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "▲" else "▼", color = ClosetColors.TextSecondary)
+                }
+            },
             modifier = Modifier
-                .menuAnchor()
                 .fillMaxWidth()
-                .padding(vertical = 4.dp),
+                .clickable { expanded = true },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ClosetColors.Rose,
                 unfocusedBorderColor = ClosetColors.CardStroke,
@@ -353,7 +353,10 @@ private fun DropdownField(label: String, value: String, options: List<String>, o
                 unfocusedTextColor = ClosetColors.TextPrimary
             )
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
             options.forEach { opt ->
                 DropdownMenuItem(
                     text = { Text(opt) },
