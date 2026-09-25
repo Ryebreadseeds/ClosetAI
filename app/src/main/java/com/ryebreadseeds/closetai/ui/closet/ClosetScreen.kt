@@ -366,68 +366,6 @@ fun ClosetScreen(vm: ClosetViewModel) {
             }
         )
     }
-}
-
-@Composable
-private fun Field(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        singleLine = label != "Notes",
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ClosetColors.Rose,
-            unfocusedBorderColor = ClosetColors.CardStroke,
-            focusedLabelColor = ClosetColors.Rose,
-            cursorColor = ClosetColors.Rose,
-            focusedTextColor = ClosetColors.TextPrimary,
-            unfocusedTextColor = ClosetColors.TextPrimary
-        )
-    )
-}
-
-@Composable
-private fun DropdownField(label: String, value: String, options: List<String>, onChange: (String) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = {
-                TextButton(onClick = { expanded = !expanded }) {
-                    Text(if (expanded) "▲" else "▼", color = ClosetColors.TextSecondary)
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = ClosetColors.Rose,
-                unfocusedBorderColor = ClosetColors.CardStroke,
-                focusedLabelColor = ClosetColors.Rose,
-                focusedTextColor = ClosetColors.TextPrimary,
-                unfocusedTextColor = ClosetColors.TextPrimary
-            )
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { opt ->
-                DropdownMenuItem(
-                    text = { Text(opt) },
-                    onClick = {
-                        onChange(opt)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
 
     if (magic.active) {
         AlertDialog(
@@ -530,3 +468,65 @@ private fun DropdownField(label: String, value: String, options: List<String>, o
         )
     }
 
+}
+
+@Composable
+private fun Field(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        singleLine = label != "Notes",
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = ClosetColors.Rose,
+            unfocusedBorderColor = ClosetColors.CardStroke,
+            focusedLabelColor = ClosetColors.Rose,
+            cursorColor = ClosetColors.Rose,
+            focusedTextColor = ClosetColors.TextPrimary,
+            unfocusedTextColor = ClosetColors.TextPrimary
+        )
+    )
+}
+
+@Composable
+private fun DropdownField(label: String, value: String, options: List<String>, onChange: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = {
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(if (expanded) "▲" else "▼", color = ClosetColors.TextSecondary)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ClosetColors.Rose,
+                unfocusedBorderColor = ClosetColors.CardStroke,
+                focusedLabelColor = ClosetColors.Rose,
+                focusedTextColor = ClosetColors.TextPrimary,
+                unfocusedTextColor = ClosetColors.TextPrimary
+            )
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { opt ->
+                DropdownMenuItem(
+                    text = { Text(opt) },
+                    onClick = {
+                        onChange(opt)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
