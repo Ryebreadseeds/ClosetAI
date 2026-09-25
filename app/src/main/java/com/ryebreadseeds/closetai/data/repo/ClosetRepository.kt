@@ -53,7 +53,6 @@ class ClosetRepository(private val context: Context) {
         val dir = File(context.filesDir, "closet").apply { mkdirs() }
         val outFile = File(dir, "item_${UUID.randomUUID()}.jpg")
         context.contentResolver.openInputStream(uri)?.use { input ->
-            // Decode, optionally downscale, re-encode JPEG
             val original = BitmapFactory.decodeStream(input)
                 ?: error("Could not decode image")
             val maxSide = 1600
@@ -73,7 +72,6 @@ class ClosetRepository(private val context: Context) {
         } ?: error("Could not open image")
         outFile.absolutePath
     }
-
 
     suspend fun copyFromAbsolutePath(absolutePath: String): String = withContext(Dispatchers.IO) {
         val src = File(absolutePath)
@@ -99,6 +97,35 @@ class ClosetRepository(private val context: Context) {
             scaled.compress(Bitmap.CompressFormat.JPEG, 88, fos)
         }
         if (scaled !== original) scaled.recycle() else original.recycle()
+        outFile.absolutePath
+    }
+
+    /**
+     * Crop [sourcePath] using normalized bbox [left, top, right, bottom] in 0..1.
+     * Returns a new file path, or copies the whole image if crop fails.
+     */
+    suspend fun cropPhoto(sourcePath: String, bbox: FloatArray): String = withContext(Dispatchers.IO) {
+        val original = BitmapFactory.decodeFile(sourcePath)
+            ?: return@withContext copyFromAbsolutePath(sourcePath)
+        val left = (bbox[0] * original.width).toInt().coerceIn(0, original.width - 1)
+        val top = (bbox[1] * original.height).toInt().coerceIn(0, original.height - 1)
+        val right = (bbox[2] * original.width).toInt().coerceIn(left + 1, original.width)
+        val bottom = (bbox[3] * original.height).toInt().coerceIn(top + 1, original.height)
+        val w = right - left
+        val h = bottom - top
+        val cropped = try {
+            Bitmap.createBitmap(original, left, top, w, h)
+        } catch (_: Exception) {
+            original.recycle()
+            return@withContext copyFromAbsolutePath(sourcePath)
+        }
+        if (cropped !== original) original.recycle()
+        val dir = File(context.filesDir, "closet").apply { mkdirs() }
+        val outFile = File(dir, "item_${UUID.randomUUID()}.jpg")
+        FileOutputStream(outFile).use { fos ->
+            cropped.compress(Bitmap.CompressFormat.JPEG, 88, fos)
+        }
+        cropped.recycle()
         outFile.absolutePath
     }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -109,6 +110,8 @@ fun TodayScreen(vm: ClosetViewModel) {
                         .padding(16.dp)
                 ) {
                     Text(today.current!!.title, style = MaterialTheme.typography.titleLarge, color = ClosetColors.Cream)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Why this look", style = MaterialTheme.typography.titleMedium, color = ClosetColors.Rose)
                     Spacer(Modifier.height(4.dp))
                     Text(today.current!!.rationale, style = MaterialTheme.typography.bodyMedium)
                     if (today.current!!.layered) {
@@ -130,19 +133,36 @@ fun TodayScreen(vm: ClosetViewModel) {
                                 tint = if (today.liked == false) ClosetColors.Danger else ClosetColors.TextSecondary
                             )
                         }
-                        FilledTonalButton(
-                            onClick = {
-                                vm.persistMood()
-                                vm.generateOutfit()
-                            },
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = ClosetColors.Plum,
-                                contentColor = ClosetColors.Cream
-                            )
-                        ) {
-                            Icon(Icons.Outlined.Refresh, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Regenerate")
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilledTonalButton(
+                                onClick = {
+                                    vm.persistMood()
+                                    vm.generateOutfit()
+                                },
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = ClosetColors.Plum,
+                                    contentColor = ClosetColors.Cream
+                                )
+                            ) {
+                                Icon(Icons.Outlined.Refresh, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Regenerate")
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Button(
+                                onClick = {
+                                    vm.persistMood()
+                                    vm.glowUp()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ClosetColors.Rose,
+                                    contentColor = ClosetColors.Ink
+                                )
+                            ) {
+                                Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Glow up")
+                            }
                         }
                         IconButton(onClick = { vm.likeCurrent() }) {
                             Icon(

@@ -2,6 +2,7 @@ package com.ryebreadseeds.closetai.ui.nav
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Style
@@ -25,6 +26,10 @@ import com.ryebreadseeds.closetai.ui.ClosetViewModel
 import com.ryebreadseeds.closetai.ui.closet.ClosetScreen
 import com.ryebreadseeds.closetai.ui.outfits.OutfitsScreen
 import com.ryebreadseeds.closetai.ui.settings.SettingsScreen
+import com.ryebreadseeds.closetai.ui.smart.MixMatchScreen
+import com.ryebreadseeds.closetai.ui.smart.OutfitCheckScreen
+import com.ryebreadseeds.closetai.ui.smart.ShoppingBuddyScreen
+import com.ryebreadseeds.closetai.ui.smart.SmartHubScreen
 import com.ryebreadseeds.closetai.ui.theme.ClosetBackground
 import com.ryebreadseeds.closetai.ui.theme.ClosetColors
 import com.ryebreadseeds.closetai.ui.today.TodayScreen
@@ -32,44 +37,51 @@ import com.ryebreadseeds.closetai.ui.today.TodayScreen
 sealed class Dest(val route: String, val label: String, val icon: ImageVector) {
     data object Today : Dest("today", "Today", Icons.Outlined.Today)
     data object Closet : Dest("closet", "Closet", Icons.Outlined.Checkroom)
+    data object Smart : Dest("smart", "Smart", Icons.Outlined.AutoAwesome)
     data object Outfits : Dest("outfits", "Outfits", Icons.Outlined.Style)
     data object Settings : Dest("settings", "Settings", Icons.Outlined.Settings)
 }
 
-private val tabs = listOf(Dest.Today, Dest.Closet, Dest.Outfits, Dest.Settings)
+private val tabs = listOf(Dest.Today, Dest.Closet, Dest.Smart, Dest.Outfits, Dest.Settings)
 
 @Composable
 fun ClosetNavHost(viewModel: ClosetViewModel) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination
+    val route = current?.route
+    val hideBottom = route in setOf("smart/mix", "smart/check", "smart/shop")
 
     ClosetBackground {
         Scaffold(
             containerColor = androidx.compose.ui.graphics.Color.Transparent,
             bottomBar = {
-                NavigationBar(containerColor = ClosetColors.InkMid.copy(alpha = 0.96f)) {
-                    tabs.forEach { dest ->
-                        val selected = current?.hierarchy?.any { it.route == dest.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                nav.navigate(dest.route) {
-                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(dest.icon, contentDescription = dest.label) },
-                            label = { Text(dest.label) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = ClosetColors.Rose,
-                                selectedTextColor = ClosetColors.Rose,
-                                indicatorColor = ClosetColors.Plum,
-                                unselectedIconColor = ClosetColors.TextSecondary,
-                                unselectedTextColor = ClosetColors.TextSecondary
+                if (!hideBottom) {
+                    NavigationBar(containerColor = ClosetColors.InkMid.copy(alpha = 0.96f)) {
+                        tabs.forEach { dest ->
+                            val selected = current?.hierarchy?.any {
+                                it.route == dest.route || (dest == Dest.Smart && it.route?.startsWith("smart") == true)
+                            } == true
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    nav.navigate(dest.route) {
+                                        popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                icon = { Icon(dest.icon, contentDescription = dest.label) },
+                                label = { Text(dest.label) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = ClosetColors.Rose,
+                                    selectedTextColor = ClosetColors.Rose,
+                                    indicatorColor = ClosetColors.Plum,
+                                    unselectedIconColor = ClosetColors.TextSecondary,
+                                    unselectedTextColor = ClosetColors.TextSecondary
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -81,6 +93,22 @@ fun ClosetNavHost(viewModel: ClosetViewModel) {
             ) {
                 composable(Dest.Today.route) { TodayScreen(viewModel) }
                 composable(Dest.Closet.route) { ClosetScreen(viewModel) }
+                composable(Dest.Smart.route) {
+                    SmartHubScreen(
+                        onMix = { nav.navigate("smart/mix") },
+                        onCheck = { nav.navigate("smart/check") },
+                        onShop = { nav.navigate("smart/shop") }
+                    )
+                }
+                composable("smart/mix") {
+                    MixMatchScreen(viewModel, onBack = { nav.popBackStack() })
+                }
+                composable("smart/check") {
+                    OutfitCheckScreen(viewModel, onBack = { nav.popBackStack() })
+                }
+                composable("smart/shop") {
+                    ShoppingBuddyScreen(viewModel, onBack = { nav.popBackStack() })
+                }
                 composable(Dest.Outfits.route) { OutfitsScreen(viewModel) }
                 composable(Dest.Settings.route) { SettingsScreen(viewModel) }
             }

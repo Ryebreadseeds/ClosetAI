@@ -3,102 +3,95 @@
 Free AI wardrobe and outfit assistant for Android. Build your closet from camera or gallery photos, get daily outfit suggestions with optional layering, and (optionally) plug in a free [OpenRouter](https://openrouter.ai) API key for smarter item tagging and LLM-enhanced looks.
 
 **Package:** `com.ryebreadseeds.closetai`  
-**Price:** Free forever — no Play Billing, no subscription.
+**Price:** Free forever — no Play Billing, no subscription, no third-party wardrobe branding.
 
 ## Features
 
-- **Closet** — add items from camera or gallery; photos stay on device. Categories: Top, Bottom, Dress, Romper, Outerwear, Shoes, Accessory, Other. Edit name / color / category / season; delete items.
-- **Background / vision assist** — with an OpenRouter (OpenAI-compatible) key in Settings, a vision model suggests name, category, color, and season. Without a key, a local color heuristic still fills a draft.
-- **Outfit generator**
-  - Occasion: Casual, Work, Date, Gym, Formal
-  - Optional mood (e.g. cozy, bold)
-  - Weather via free [Open-Meteo](https://open-meteo.com) (city or lat/lon; default **Little Falls, NJ**)
-  - Layering supported (e.g. base top under shirt + outerwear)
-  - Never pairs pants/bottoms with Dress or Romper
-  - Offline rules engine always works (color harmony + category slots)
-  - With API key: LLM can refine outfits from your inventory metadata
-- **Feedback** — like / dislike; disliked combinations never repeat; delete any saved suggestion
-- **Screens** — Today · Closet · Outfits · Settings (Material 3, dark-friendly UI)
+### Closet
+- Add items from camera or gallery; photos stay on device
+- Categories: Top, Bottom, Dress, Romper, Outerwear, Shoes, Accessory, Other
+- Edit name / color / category / season; delete items
+- **Search** + **category chip filters**
+- **Magic upload** — one photo of many garments → multiple closet items (vision + optional bbox crop; needs API key)
+- **What goes with this** — from an item detail, get 3 complementary outfits (like / dislike / save)
+
+### Today
+- Occasion: Casual, Work, Date, Gym, Formal
+- Optional mood (e.g. cozy, bold)
+- Weather via free [Open-Meteo](https://open-meteo.com) (default **Little Falls, NJ**)
+- Offline rules engine + optional LLM refinement
+- Layering supported; never pairs pants with Dress/Romper
+- Like / dislike feedback; disliked combos never repeat
+- Weights **liked** outfit colors/categories when generating
+- Clear **Why this look** rationale
+- **Glow up** — regenerate favoring unused + liked-style pieces
+
+### Smart hub
+- **Mix & Match** — fill slots (base top, layer, bottom *or* dress/romper, outerwear, shoes, accessory); Save / Ask AI to complete / Clear
+- **Outfit Check** — score Color / Coherence / Occasion (1–10) with tips; works offline, richer with API key
+- **Shopping Buddy** — 3–7 concrete gap recommendations (e.g. “navy chinos”); no affiliates, no in-app purchases
+
+### Outfits & Settings
+- History of generated / saved looks
+- Encrypted OpenRouter API key storage
+- Weather city / lat / lon
 
 ## Offline vs API key
 
 | Capability | Offline (no key) | With free OpenRouter key |
 |---|---|---|
-| Add / edit / delete closet items | Yes | Yes |
-| Local color-based draft tagging | Yes | Yes (overridden by vision model) |
-| Rules-engine outfits + layering | Yes | Yes (fallback if LLM fails) |
+| Closet CRUD, search, filters | Yes | Yes |
+| Local color draft tagging | Yes | Yes (vision overrides) |
+| Rules outfits + layering + Glow up | Yes | Yes (LLM preferred when key set) |
 | Weather-aware suggestions | Yes (Open-Meteo) | Yes |
-| Vision name/category/color | — | Yes |
-| LLM outfit tips from inventory | — | Yes |
+| Magic upload (multi-item) | Explains need for key → single-item fallback | Yes |
+| What goes with this | Rules | Rules + LLM |
+| Mix & Match AI complete | Offline fill | LLM complete |
+| Outfit Check | Heuristic scores | AI scores + tips |
+| Shopping Buddy | Rule gaps | AI gap analysis |
 | Like / dislike / history | Yes | Yes |
-
-API keys are stored with **EncryptedSharedPreferences** on device. Other preferences use DataStore.
 
 ## Requirements
 
-- Android Studio Ladybug (2024.2+) or newer recommended  
+- Android Studio Ladybug (2024.2+) or newer  
 - JDK 17  
-- Android device or emulator, **minSdk 26** (Android 8.0+)  
-- For a physical Samsung phone: USB cable + USB debugging
+- Device/emulator **minSdk 26**  
+- Samsung phone: USB + USB debugging
 
-## Open in Android Studio
+## Pull & run on your phone
 
-1. Clone this repo:
-   ```bash
-   git clone https://github.com/Ryebreadseeds/ClosetAI.git
-   ```
-2. Open Android Studio → **File → Open** → select the `ClosetAI` folder (the one with `settings.gradle.kts`).
-3. Let Gradle sync. If prompted for an SDK, install **Android SDK 35** and build tools.
-4. Android Studio usually creates `local.properties` with `sdk.dir=...`. If missing, copy `local.properties.example` and set your SDK path.
+```bash
+git clone https://github.com/Ryebreadseeds/ClosetAI.git
+cd ClosetAI
+git pull origin main
+```
 
-## Install on a Samsung phone (e.g. S26 Ultra) via USB
+1. Open the folder in Android Studio (the one with `settings.gradle.kts`).
+2. Let Gradle sync (SDK 35).
+3. Connect phone with USB debugging on.
+4. Select the device → **Run** (green triangle) / Shift+F10.
 
-1. **On the phone**
-   - Settings → About phone → tap **Build number** seven times to enable Developer options.
-   - Settings → Developer options → turn on **USB debugging**.
-   - (Optional) Enable **Install via USB** if shown.
-2. **Connect** the phone with a USB-C cable. When prompted, allow USB debugging for this computer (check “Always allow” if you trust it).
-3. **In Android Studio**
-   - Wait until your device appears in the device dropdown (top toolbar).
-   - Select **app** run configuration.
-   - Click **Run** (green triangle) or press Shift+F10.
-4. Accept any “Install” prompt on the phone. ClosetAI will launch with the hanger icon.
-
-### Command-line alternative
+CLI:
 
 ```bash
 ./gradlew :app:installDebug
 adb shell am start -n com.ryebreadseeds.closetai/.MainActivity
 ```
 
-## Free OpenRouter key (optional, smarter AI)
+## Free OpenRouter key (optional)
 
 1. Create a free account at [https://openrouter.ai](https://openrouter.ai).
-2. Create an API key in the dashboard.
-3. In ClosetAI → **Settings** → paste the key → **Save API key**.
-4. Add a new closet photo — tagging should use a vision model. Regenerate outfits on **Today** for LLM-enhanced picks when the key is present.
+2. Create an API key.
+3. ClosetAI → **Settings** → paste → **Save API key**.
+4. Use Magic upload, Glow up, Mix AI complete, Outfit Check, Shopping Buddy for richer results.
 
-Default models (changeable later in code / prefs): `google/gemini-2.0-flash-001` via OpenRouter. You can use any OpenAI-compatible base URL.
-
-OpenRouter offers free and low-cost models; ClosetAI never requires a paid app subscription.
-
-## Project structure
-
-```
-app/src/main/java/com/ryebreadseeds/closetai/
-  ClosetAiApp.kt / MainActivity.kt
-  data/          Room DB, entities, DAOs, repositories
-  domain/        Categories, rules engine, color harmony
-  ai/            OpenRouter client + local image fallback
-  weather/       Open-Meteo client
-  ui/            Today, Closet, Outfits, Settings (Compose)
-```
+Default models: `google/gemini-2.0-flash-001` via OpenRouter (OpenAI-compatible).
 
 ## Privacy
 
-- Photos and closet data stay on your device (app private storage).
-- Weather uses Open-Meteo with your chosen city/coordinates.
-- If you set an API key, item photos (vision) or inventory text (outfit tips) are sent to the OpenAI-compatible endpoint you configured (default OpenRouter). Clear the key anytime in Settings.
+- Photos and closet data stay on device.
+- Weather uses Open-Meteo with your city/coords.
+- With an API key, photos (vision) or inventory text may be sent to your configured endpoint. Clear the key anytime.
 
 ## License
 

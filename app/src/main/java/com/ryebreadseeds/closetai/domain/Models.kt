@@ -19,6 +19,16 @@ enum class ClothingCategory(val label: String, val slot: OutfitSlot) {
 
 enum class OutfitSlot { TOP, BOTTOM, ONE_PIECE, OUTERWEAR, SHOES, ACCESSORY }
 
+enum class MixSlot(val label: String) {
+    BASE_TOP("Base top"),
+    LAYER_TOP("Layer (optional)"),
+    BOTTOM("Bottom"),
+    ONE_PIECE("Dress / Romper"),
+    OUTERWEAR("Outerwear"),
+    SHOES("Shoes"),
+    ACCESSORY("Accessory")
+}
+
 enum class Season(val label: String) {
     SPRING("Spring"),
     SUMMER("Summer"),
@@ -70,3 +80,25 @@ data class GeneratedOutfit(
 )
 
 enum class OutfitSource { RULES, LLM }
+
+data class OutfitCheckResult(
+    val colorScore: Int,
+    val coherenceScore: Int,
+    val occasionScore: Int,
+    val overall: Int,
+    val tips: List<String>,
+    val source: OutfitSource
+)
+
+data class ShoppingSuggestion(
+    val name: String,
+    val category: String,
+    val why: String,
+    val occasionHint: String = ""
+)
+
+data class StylePrefs(
+    val likedColors: Map<String, Int> = emptyMap(),
+    val likedCategories: Map<String, Int> = emptyMap(),
+    val usedItemIds: Set<Long> = emptySet()
+)

@@ -16,6 +16,13 @@ import com.ryebreadseeds.closetai.domain.Occasion
 import com.ryebreadseeds.closetai.domain.OutfitSource
 import com.ryebreadseeds.closetai.domain.Season
 import com.ryebreadseeds.closetai.domain.WeatherSnapshot
+import com.ryebreadseeds.closetai.domain.ColorHarmony
+import com.ryebreadseeds.closetai.domain.MixSlot
+import com.ryebreadseeds.closetai.domain.OutfitCheckEngine
+import com.ryebreadseeds.closetai.domain.OutfitCheckResult
+import com.ryebreadseeds.closetai.domain.ShoppingBuddyEngine
+import com.ryebreadseeds.closetai.domain.ShoppingSuggestion
+import com.ryebreadseeds.closetai.domain.StylePrefs
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +57,47 @@ data class AddEditDraft(
     val error: String? = null
 )
 
+data class MagicUploadState(
+    val active: Boolean = false,
+    val analyzing: Boolean = false,
+    val message: String? = null,
+    val savedCount: Int = 0
+)
+
+data class MixMatchState(
+    val slots: Map<MixSlot, Long?> = MixSlot.entries.associateWith { null },
+    val occasion: Occasion = Occasion.CASUAL,
+    val working: Boolean = false,
+    val message: String? = null
+)
+
+data class WhatGoesWithState(
+    val anchorId: Long? = null,
+    val loading: Boolean = false,
+    val suggestions: List<GeneratedOutfit> = emptyList(),
+    val suggestionItems: Map<Int, List<ClosetItemEntity>> = emptyMap(),
+    val message: String? = null
+),
+    val suggestionItems: Map<Int, List<ClosetItemEntity>> = emptyMap(),
+    val message: String? = null
+)
+
+data class OutfitCheckUiState(
+    val selectedIds: Set<Long> = emptySet(),
+    val fromOutfitId: Long? = null,
+    val occasion: Occasion = Occasion.CASUAL,
+    val loading: Boolean = false,
+    val result: OutfitCheckResult? = null,
+    val message: String? = null
+)
+
+data class ShoppingUiState(
+    val loading: Boolean = false,
+    val suggestions: List<ShoppingSuggestion> = emptyList(),
+    val message: String? = null,
+    val source: OutfitSource? = null
+)
+
 class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
     private val closet = app.closetRepository
     private val settings = app.settingsRepository
@@ -65,6 +113,28 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
 
     private val _draft = MutableStateFlow<AddEditDraft?>(null)
     val draft: StateFlow<AddEditDraft?> = _draft.asStateFlow()
+
+    private val _magic = MutableStateFlow(MagicUploadState())
+    val magic: StateFlow<MagicUploadState> = _magic.asStateFlow()
+
+    private val _mix = MutableStateFlow(MixMatchState())
+    val mix: StateFlow<MixMatchState> = _mix.asStateFlow()
+
+    private val _whatGoes = MutableStateFlow(WhatGoesWithState())
+    val whatGoes: StateFlow<WhatGoesWithState> = _whatGoes.asStateFlow()
+
+    private val _check = MutableStateFlow(OutfitCheckUiState())
+    val check: StateFlow<OutfitCheckUiState> = _check.asStateFlow()
+
+    private val _shop = MutableStateFlow(ShoppingUiState())
+    val shop: StateFlow<ShoppingUiState> = _shop.asStateFlow()
+
+    private val _closetSearch = MutableStateFlow("")
+    val closetSearch: StateFlow<String> = _closetSearch.asStateFlow()
+
+    private val _closetCategoryFilter = MutableStateFlow("All")
+    val closetCategoryFilter: StateFlow<String> = _closetCategoryFilter.asStateFlow()
+
 
     private val _settingsCity = MutableStateFlow(SettingsRepository.DEFAULT_CITY)
     private val _settingsLat = MutableStateFlow(SettingsRepository.DEFAULT_LAT)
@@ -140,7 +210,7 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
         }
     }
 
-    fun generateOutfit(preferLlm: Boolean = true) {
+    fun generateOutfit(preferLlm: Boolean = true, glowUp: Boolean = false) {
         viewModelScope.launch {
             _today.update { it.copy(generating = true, message = null) }
             val inventory = closet.getItems()
@@ -155,6 +225,8 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
             val mood = _today.value.mood.ifBlank { null }
             val weather = _today.value.weather
             val apiKey = settings.getApiKey()
+            val prefs = buildStylePrefs()
+            val unusedIds = inventory.map { it.id }.filter { it !in prefs.usedItemIds }.toSet()
 
             var result: GeneratedOutfit? = null
             if (preferLlm && apiKey.isNotBlank()) {
@@ -165,9 +237,11 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
                         model = settings.getChatModel(),
                         items = inventory,
                         occasion = occasion,
-                        mood = mood,
+                        mood = if (glowUp) listOfNotNull(mood, "glow up", "fresh unused pieces").joinToString(", ") else mood,
                         weather = weather,
-                        dislikedKeys = disliked
+                        dislikedKeys = disliked,
+                        preferUnusedIds = if (glowUp) unusedIds else emptySet(),
+                        likedColorHints = prefs.likedColors.keys.toList()
                     )
                 }.getOrNull()?.let { llm ->
                     // Validate IDs exist & dress/romper rule
@@ -184,7 +258,9 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
                     occasion = occasion,
                     mood = mood,
                     weather = weather,
-                    dislikedKeys = disliked
+                    dislikedKeys = disliked,
+                    stylePrefs = prefs,
+                    glowUp = glowUp
                 )
             }
             if (result == null) {
@@ -215,8 +291,12 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
                     currentItems = pieces,
                     currentOutfitId = id,
                     liked = null,
-                    message = if (result.source == OutfitSource.LLM) "AI-enhanced suggestion"
-                    else "Offline rules suggestion",
+                    message = when {
+                        glowUp && result.source == OutfitSource.LLM -> "Glow-up with AI"
+                        glowUp -> "Glow-up · fresher & liked-style picks"
+                        result.source == OutfitSource.LLM -> "AI-enhanced suggestion"
+                        else -> "Offline rules suggestion"
+                    },
                     hasApiKey = apiKey.isNotBlank()
                 )
             }
@@ -409,6 +489,10 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
             _today.update {
                 it.copy(current = null, currentItems = emptyList(), currentOutfitId = null, liked = null)
             }
+            clearMix()
+            clearCheck()
+            _shop.value = ShoppingUiState()
+            _whatGoes.value = WhatGoesWithState()
             _statusMessage.value = "All closet data cleared"
         }
     }
@@ -417,6 +501,502 @@ class ClosetViewModel(private val app: ClosetAiApp) : ViewModel() {
         _statusMessage.value = null
         _today.update { it.copy(message = null) }
     }
+
+
+    fun glowUp() {
+        generateOutfit(preferLlm = true, glowUp = true)
+    }
+
+    fun setClosetSearch(q: String) {
+        _closetSearch.value = q
+    }
+
+    fun setClosetCategoryFilter(label: String) {
+        _closetCategoryFilter.value = label
+    }
+
+    fun filteredItems(): List<ClosetItemEntity> {
+        val q = _closetSearch.value.trim()
+        val cat = _closetCategoryFilter.value
+        return items.value.filter { item ->
+            val catOk = cat == "All" || item.category.equals(cat, ignoreCase = true)
+            val qOk = q.isBlank() ||
+                item.name.contains(q, true) ||
+                item.color.contains(q, true) ||
+                item.category.contains(q, true) ||
+                item.notes.contains(q, true)
+            catOk && qOk
+        }
+    }
+
+    private suspend fun buildStylePrefs(): StylePrefs {
+        val outfits = closet.getOutfits()
+        val allItems = closet.getItems().associateBy { it.id }
+        val colorCounts = mutableMapOf<String, Int>()
+        val catCounts = mutableMapOf<String, Int>()
+        val used = mutableSetOf<Long>()
+        outfits.forEach { outfit ->
+            val ids = outfit.itemIds()
+            used.addAll(ids)
+            if (outfit.liked == true) {
+                ids.mapNotNull { allItems[it] }.forEach { item ->
+                    val key = ColorHarmony.normalize(item.color)
+                    colorCounts[key] = (colorCounts[key] ?: 0) + 1
+                    catCounts[item.category] = (catCounts[item.category] ?: 0) + 1
+                }
+            }
+        }
+        return StylePrefs(colorCounts, catCounts, used)
+    }
+
+    // —— Magic upload ——
+
+    fun startMagicFromUri(uri: Uri) {
+        viewModelScope.launch {
+            runCatching {
+                val path = closet.persistPhotoFromUri(uri)
+                runMagicUpload(path)
+            }.onFailure { e ->
+                _magic.value = MagicUploadState(active = true, message = e.message ?: "Import failed")
+            }
+        }
+    }
+
+    fun startMagicFromPath(path: String) {
+        viewModelScope.launch {
+            runCatching {
+                val persisted = closet.copyFromAbsolutePath(path)
+                runMagicUpload(persisted)
+            }.onFailure { e ->
+                _magic.value = MagicUploadState(active = true, message = e.message ?: "Import failed")
+            }
+        }
+    }
+
+    private suspend fun runMagicUpload(path: String) {
+        val apiKey = settings.getApiKey()
+        if (apiKey.isBlank()) {
+            _magic.value = MagicUploadState(
+                active = true,
+                message = "Magic upload needs an OpenRouter API key (Settings). Falling back to single-item local suggest."
+            )
+            _draft.value = AddEditDraft(analyzing = true)
+            analyzeAndFillDraft(path, id = null)
+            return
+        }
+        _magic.value = MagicUploadState(active = true, analyzing = true, message = "Extracting items…")
+        val multi = runCatching {
+            app.openRouterClient.analyzeMultiItemPhoto(
+                apiKey = apiKey,
+                baseUrl = settings.getOpenRouterBaseUrl(),
+                model = settings.getVisionModel(),
+                photoPath = path
+            )
+        }.getOrNull()
+
+        if (multi == null || multi.items.isEmpty()) {
+            _magic.value = MagicUploadState(
+                active = true,
+                analyzing = false,
+                message = "Could not split items — opening single-item editor."
+            )
+            _draft.value = AddEditDraft(analyzing = true)
+            analyzeAndFillDraft(path, id = null)
+            return
+        }
+
+        var saved = 0
+        multi.items.forEachIndexed { index, suggestion ->
+            val photo = if (suggestion.bbox != null) {
+                runCatching { closet.cropPhoto(path, suggestion.bbox!!) }.getOrDefault(path)
+            } else {
+                path
+            }
+            val name = if (multi.items.size > 1 && suggestion.bbox == null) {
+                "${suggestion.name} (${index + 1})"
+            } else {
+                suggestion.name
+            }
+            closet.saveItem(
+                ClosetItemEntity(
+                    name = name,
+                    category = ClothingCategory.fromLabel(suggestion.category).label,
+                    color = suggestion.color.ifBlank { "Unknown" },
+                    season = Season.fromLabel(suggestion.season).label,
+                    photoPath = photo,
+                    notes = suggestion.notes.ifBlank { "Magic upload" }
+                )
+            )
+            saved++
+        }
+        _magic.value = MagicUploadState(
+            active = true,
+            analyzing = false,
+            savedCount = saved,
+            message = "Saved $saved items from one photo."
+        )
+        _statusMessage.value = "Magic upload: $saved items added"
+    }
+
+    fun dismissMagic() {
+        _magic.value = MagicUploadState()
+    }
+
+    // —— Mix & Match ——
+
+    fun setMixOccasion(occasion: Occasion) {
+        _mix.update { it.copy(occasion = occasion) }
+    }
+
+    fun setMixSlot(slot: MixSlot, itemId: Long?) {
+        _mix.update { state ->
+            val next = state.slots.toMutableMap()
+            next[slot] = itemId
+            if (itemId != null) {
+                when (slot) {
+                    MixSlot.BOTTOM -> next[MixSlot.ONE_PIECE] = null
+                    MixSlot.ONE_PIECE -> next[MixSlot.BOTTOM] = null
+                    else -> Unit
+                }
+            }
+            state.copy(slots = next, message = null)
+        }
+    }
+
+    fun clearMix() {
+        _mix.value = MixMatchState(occasion = _mix.value.occasion)
+    }
+
+    fun mixSelectedIds(): List<Long> =
+        _mix.value.slots.values.filterNotNull().distinct()
+
+    fun saveMixOutfit() {
+        viewModelScope.launch {
+            val ids = mixSelectedIds()
+            if (ids.isEmpty()) {
+                _mix.update { it.copy(message = "Pick at least one item.") }
+                return@launch
+            }
+            val inventory = closet.getItems()
+            val pieces = ids.mapNotNull { id -> inventory.find { it.id == id } }
+            if (violatesOnePieceRule(pieces)) {
+                _mix.update { it.copy(message = "Can't combine bottoms with dress/romper.") }
+                return@launch
+            }
+            closet.saveOutfit(
+                OutfitEntity(
+                    title = "Mix & Match · ${_mix.value.occasion.label}",
+                    itemIdsCsv = OutfitEntity.idsToCsv(ids),
+                    occasion = _mix.value.occasion.label,
+                    rationale = "Hand-picked · " + pieces.joinToString(", ") { it.name },
+                    source = "MIX"
+                )
+            )
+            _mix.update { it.copy(message = "Outfit saved.") }
+            _statusMessage.value = "Mix outfit saved"
+        }
+    }
+
+    fun askAiCompleteMix() {
+        viewModelScope.launch {
+            _mix.update { it.copy(working = true, message = null) }
+            val inventory = closet.getItems()
+            val selected = mixSelectedIds()
+            val apiKey = settings.getApiKey()
+            val weather = _today.value.weather
+            val occasion = _mix.value.occasion
+            val prefs = buildStylePrefs()
+
+            var result: GeneratedOutfit? = null
+            if (apiKey.isNotBlank()) {
+                result = runCatching {
+                    app.openRouterClient.completeMixMatch(
+                        apiKey = apiKey,
+                        baseUrl = settings.getOpenRouterBaseUrl(),
+                        model = settings.getChatModel(),
+                        items = inventory,
+                        selectedIds = selected,
+                        occasion = occasion,
+                        weather = weather
+                    )
+                }.getOrNull()?.let { llm ->
+                    val map = inventory.associateBy { it.id }
+                    val pieces = llm.itemIds.mapNotNull { map[it] }
+                    if (pieces.isEmpty() || violatesOnePieceRule(pieces)) null
+                    else llm.copy(itemIds = pieces.map { it.id })
+                }
+            }
+            if (result == null) {
+                result = app.rulesEngine.completeMix(
+                    items = inventory,
+                    selectedIds = selected,
+                    occasion = occasion,
+                    weather = weather,
+                    stylePrefs = prefs
+                )
+            }
+            if (result == null) {
+                _mix.update { it.copy(working = false, message = "Could not complete — add more items.") }
+                return@launch
+            }
+            val byId = inventory.associateBy { it.id }
+            val slotMap = _mix.value.slots.toMutableMap()
+            result.itemIds.mapNotNull { byId[it] }.forEach { item ->
+                when (ClothingCategory.fromLabel(item.category)) {
+                    ClothingCategory.TOP -> {
+                        if (slotMap[MixSlot.BASE_TOP] == null) slotMap[MixSlot.BASE_TOP] = item.id
+                        else if (slotMap[MixSlot.LAYER_TOP] == null && slotMap[MixSlot.BASE_TOP] != item.id) {
+                            slotMap[MixSlot.LAYER_TOP] = item.id
+                        }
+                    }
+                    ClothingCategory.BOTTOM -> {
+                        slotMap[MixSlot.ONE_PIECE] = null
+                        slotMap[MixSlot.BOTTOM] = item.id
+                    }
+                    ClothingCategory.DRESS, ClothingCategory.ROMPER -> {
+                        slotMap[MixSlot.BOTTOM] = null
+                        slotMap[MixSlot.ONE_PIECE] = item.id
+                    }
+                    ClothingCategory.OUTERWEAR -> slotMap[MixSlot.OUTERWEAR] = item.id
+                    ClothingCategory.SHOES -> slotMap[MixSlot.SHOES] = item.id
+                    ClothingCategory.ACCESSORY, ClothingCategory.OTHER ->
+                        slotMap[MixSlot.ACCESSORY] = item.id
+                }
+            }
+            _mix.update {
+                it.copy(
+                    slots = slotMap,
+                    working = false,
+                    message = if (result.source == OutfitSource.LLM) "AI filled empty slots"
+                    else "Offline complete filled empty slots"
+                )
+            }
+        }
+    }
+
+    // —— What goes with this ——
+
+    fun requestWhatGoesWith(item: ClosetItemEntity) {
+        viewModelScope.launch {
+            _whatGoes.value = WhatGoesWithState(anchorId = item.id, loading = true)
+            val inventory = closet.getItems()
+            val disliked = closet.getDislikedKeys()
+            val prefs = buildStylePrefs()
+            val occasion = _today.value.occasion
+            val weather = _today.value.weather
+            val apiKey = settings.getApiKey()
+
+            var suggestions: List<GeneratedOutfit> = emptyList()
+            if (apiKey.isNotBlank()) {
+                suggestions = runCatching {
+                    app.openRouterClient.whatGoesWithItem(
+                        apiKey = apiKey,
+                        baseUrl = settings.getOpenRouterBaseUrl(),
+                        model = settings.getChatModel(),
+                        items = inventory,
+                        anchorId = item.id,
+                        occasion = occasion,
+                        weather = weather
+                    )
+                }.getOrDefault(emptyList()).mapNotNull { llm ->
+                    val map = inventory.associateBy { it.id }
+                    val pieces = llm.itemIds.mapNotNull { map[it] }
+                    if (pieces.isEmpty() || item.id !in llm.itemIds || violatesOnePieceRule(pieces)) null
+                    else llm.copy(itemIds = pieces.map { it.id })
+                }
+            }
+            if (suggestions.size < 3) {
+                val more = app.rulesEngine.whatGoesWith(
+                    items = inventory,
+                    anchor = item,
+                    occasion = occasion,
+                    weather = weather,
+                    dislikedKeys = disliked,
+                    stylePrefs = prefs,
+                    count = 3
+                )
+                val seen = suggestions.map { it.itemIds.sorted() }.toMutableSet()
+                for (r in more) {
+                    if (suggestions.size >= 3) break
+                    val key = r.itemIds.sorted()
+                    if (key in seen) continue
+                    seen += key
+                    suggestions = suggestions + r
+                }
+            }
+            suggestions = suggestions.take(3)
+            val itemMap = suggestions.mapIndexed { idx, g ->
+                idx to g.itemIds.mapNotNull { id -> inventory.find { it.id == id } }
+            }.toMap()
+            _whatGoes.value = WhatGoesWithState(
+                anchorId = item.id,
+                loading = false,
+                suggestions = suggestions,
+                suggestionItems = itemMap,
+                message = if (suggestions.isEmpty()) "Need more closet variety to pair with this." else null
+            )
+        }
+    }
+
+    fun dismissWhatGoes() {
+        _whatGoes.value = WhatGoesWithState()
+    }
+
+    fun likeWhatGoesSuggestion(index: Int) {
+        viewModelScope.launch {
+            val g = _whatGoes.value.suggestions.getOrNull(index) ?: return@launch
+            val id = closet.saveOutfit(
+                OutfitEntity(
+                    title = g.title,
+                    itemIdsCsv = OutfitEntity.idsToCsv(g.itemIds),
+                    occasion = g.occasion.label,
+                    rationale = g.rationale,
+                    source = g.source.name,
+                    liked = true
+                )
+            )
+            closet.setLiked(id, true)
+            _whatGoes.update { it.copy(message = "Saved & liked suggestion ${index + 1}") }
+        }
+    }
+
+    fun dislikeWhatGoesSuggestion(index: Int) {
+        viewModelScope.launch {
+            val g = _whatGoes.value.suggestions.getOrNull(index) ?: return@launch
+            closet.dislikeCombo(g.itemIds)
+            closet.saveOutfit(
+                OutfitEntity(
+                    title = g.title,
+                    itemIdsCsv = OutfitEntity.idsToCsv(g.itemIds),
+                    occasion = g.occasion.label,
+                    rationale = g.rationale,
+                    source = g.source.name,
+                    liked = false
+                )
+            )
+            _whatGoes.update { it.copy(message = "Noted — won't repeat that pairing.") }
+        }
+    }
+
+    fun saveWhatGoesSuggestion(index: Int) {
+        viewModelScope.launch {
+            val g = _whatGoes.value.suggestions.getOrNull(index) ?: return@launch
+            closet.saveOutfit(
+                OutfitEntity(
+                    title = g.title,
+                    itemIdsCsv = OutfitEntity.idsToCsv(g.itemIds),
+                    occasion = g.occasion.label,
+                    rationale = g.rationale,
+                    source = g.source.name
+                )
+            )
+            _whatGoes.update { it.copy(message = "Outfit saved") }
+        }
+    }
+
+    // —— Outfit Check ——
+
+    fun toggleCheckItem(id: Long) {
+        _check.update { state ->
+            val next = state.selectedIds.toMutableSet()
+            if (id in next) next.remove(id) else next.add(id)
+            state.copy(selectedIds = next, result = null, fromOutfitId = null)
+        }
+    }
+
+    fun loadOutfitIntoCheck(outfit: OutfitEntity) {
+        _check.update {
+            it.copy(
+                selectedIds = outfit.itemIds().toSet(),
+                fromOutfitId = outfit.id,
+                occasion = Occasion.fromLabel(outfit.occasion),
+                result = null
+            )
+        }
+    }
+
+    fun setCheckOccasion(occasion: Occasion) {
+        _check.update { it.copy(occasion = occasion) }
+    }
+
+    fun clearCheck() {
+        _check.value = OutfitCheckUiState(occasion = _today.value.occasion)
+    }
+
+    fun runOutfitCheck() {
+        viewModelScope.launch {
+            val ids = _check.value.selectedIds
+            if (ids.isEmpty()) {
+                _check.update { it.copy(message = "Select items or an outfit first.") }
+                return@launch
+            }
+            _check.update { it.copy(loading = true, message = null, result = null) }
+            val inventory = closet.getItems()
+            val pieces = ids.mapNotNull { id -> inventory.find { it.id == id } }
+            val occasion = _check.value.occasion
+            val apiKey = settings.getApiKey()
+            var result: OutfitCheckResult? = null
+            if (apiKey.isNotBlank()) {
+                result = runCatching {
+                    app.openRouterClient.checkOutfitAi(
+                        apiKey = apiKey,
+                        baseUrl = settings.getOpenRouterBaseUrl(),
+                        model = settings.getChatModel(),
+                        pieces = pieces,
+                        occasion = occasion
+                    )
+                }.getOrNull()
+            }
+            if (result == null) {
+                result = OutfitCheckEngine.score(pieces, occasion, _today.value.weather)
+            }
+            _check.update {
+                it.copy(
+                    loading = false,
+                    result = result,
+                    message = if (result.source == OutfitSource.LLM) "AI style check"
+                    else "Offline heuristic check"
+                )
+            }
+        }
+    }
+
+    // —— Shopping Buddy ——
+
+    fun runShoppingBuddy() {
+        viewModelScope.launch {
+            _shop.update { it.copy(loading = true, message = null) }
+            val inventory = closet.getItems()
+            val apiKey = settings.getApiKey()
+            var suggestions: List<ShoppingSuggestion>? = null
+            var source = OutfitSource.RULES
+            if (apiKey.isNotBlank()) {
+                suggestions = runCatching {
+                    app.openRouterClient.shoppingBuddyAi(
+                        apiKey = apiKey,
+                        baseUrl = settings.getOpenRouterBaseUrl(),
+                        model = settings.getChatModel(),
+                        items = inventory
+                    )
+                }.getOrNull()
+                if (suggestions != null) source = OutfitSource.LLM
+            }
+            if (suggestions.isNullOrEmpty()) {
+                suggestions = ShoppingBuddyEngine.suggest(inventory)
+                source = OutfitSource.RULES
+            }
+            _shop.update {
+                it.copy(
+                    loading = false,
+                    suggestions = suggestions.take(7),
+                    source = source,
+                    message = if (source == OutfitSource.LLM) "AI gap analysis"
+                    else "Offline gap analysis · add API key for richer tips"
+                )
+            }
+        }
+    }
+
 
     suspend fun createCameraFile(): java.io.File = closet.createCameraCacheFile()
 }
