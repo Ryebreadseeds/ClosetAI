@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.ShoppingBag
-import androidx.compose.material.icons.outlined.JoinInner
+import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,7 +41,7 @@ fun SmartHubScreen(
         SectionTitle("Smart", "Your free stylist toolkit — no paywall")
         Spacer(Modifier.height(8.dp))
         SmartCard(
-            icon = Icons.Outlined.JoinInner,
+            icon = Icons.Outlined.Layers,
             title = "Mix & Match",
             subtitle = "Build looks slot by slot. Ask AI to fill the gaps.",
             onClick = onMix

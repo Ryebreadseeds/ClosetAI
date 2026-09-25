@@ -77,9 +77,6 @@ data class WhatGoesWithState(
     val suggestions: List<GeneratedOutfit> = emptyList(),
     val suggestionItems: Map<Int, List<ClosetItemEntity>> = emptyMap(),
     val message: String? = null
-),
-    val suggestionItems: Map<Int, List<ClosetItemEntity>> = emptyMap(),
-    val message: String? = null
 )
 
 data class OutfitCheckUiState(
